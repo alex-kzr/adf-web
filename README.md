@@ -1,29 +1,34 @@
 # adf-web
 
-React/TypeScript visual workflow UI and monitoring for ADF. This is an independent local Git repository and a pinned submodule of the ADF umbrella.
+ADF's React/TypeScript interface for projects, tasks, visual workflows, versioned agent configuration and execution monitoring. This independent repository is a pinned submodule of the [ADF umbrella](https://github.com/alex-kzr/adf-meta). The API and host worker provide execution authority; this application has no local mock backend.
 
-**Foundation scaffold, not a working MVP.** Read [module design](docs/development.md) for what exists and what remains. GitHub origin: [adf-web](https://github.com/alex-kzr/adf-web), supplied by the user and configured locally. Publication requires explicit user authorization; the matching adf-meta delivery report records publication and verification status.
+The implemented screens use real REST mutations and authenticated SSE. Whole-system readiness remains false until the umbrella acceptance gates and real provider checks pass. See [frontend development and verification](docs/development.md) for implemented behavior, contracts and remaining integration evidence.
 
-## Umbrella documentation
+## Development
 
-- [Architecture](../docs/architecture.md)
-- [Product and acceptance](../docs/product.md)
-- [Contracts](../docs/contracts.md)
-- [Security](../docs/security.md)
-- [Backlog](../docs/backlog.md)
-- [Local development](../docs/local-development.md)
-- [Repository publication](../docs/repositories.md)
-
-These relative links work inside the initialized umbrella checkout. A standalone module clone contains its own `docs/development.md`; obtain the matching umbrella release for shared docs/contracts. The canonical umbrella is [adf-meta](https://github.com/alex-kzr/adf-meta), with [shared documentation](https://github.com/alex-kzr/adf-meta/tree/main/docs). These web links require the matching commits to be published.
-
-## Scaffold commands
-
-Run from this module directory (Python 3.12+; frontend Node 24 LTS / npm).
+Use Node 24 LTS; CI uses 24.14.0. Dependencies are pinned in `package-lock.json`.
 
 ```sh
 npm ci
+npm run lint
+npm test
 npm run build
-npm run dev -- --host 127.0.0.1
+npm run dev
 ```
 
-Run only the host worker in WSL2 for eventual real CLI execution; it is not a Compose service. Foundation mock/probe code never launches coding agents. For Python, use a local virtual environment; install commands do not change global packages when run there. No secret is required to validate/mock the scaffold.
+The development server binds to `127.0.0.1:5173` and proxies `/api` to the local API on port 8080. The umbrella Docker workflow serves the production build with the same-origin API proxy. Enter the configured local admin bearer token after each reload; it remains in memory. Authenticate subscription CLI providers separately in the WSL host worker account.
+
+## Documentation
+
+- [Frontend development and verification](docs/development.md)
+- [Architecture](../docs/architecture.md)
+- [Product and acceptance](../docs/product.md)
+- [Frontend design](../docs/frontend.md)
+- [Contracts](../docs/contracts.md)
+- [Implemented API wire contract](../services/api/docs/wire-contract.md)
+- [Security](../docs/security.md)
+- [Local Docker / WSL workflow](../docs/local-development.md)
+- [Backlog](../docs/backlog.md)
+- [Repository publication](../docs/repositories.md)
+
+Relative shared links require the initialized umbrella checkout. For a standalone clone, obtain the matching [adf-meta documentation](https://github.com/alex-kzr/adf-meta/tree/main/docs) and module pins. The user supplied the existing [adf-web origin](https://github.com/alex-kzr/adf-web); publication is a separate authorized action.

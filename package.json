@@ -9,7 +9,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "lint": "biome check src tests vite.config.ts",
+    "format": "biome format --write src tests vite.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.1",
@@ -18,6 +22,8 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@tanstack/react-query-devtools": "5.104.1",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
