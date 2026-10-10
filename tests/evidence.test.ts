@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { conditionValue, currentPlanGraph, usageSummary } from '../src/evidence.ts';
+import {
+  conditionValue,
+  currentPlanGraph,
+  runControlNotice,
+  usageSummary,
+} from '../src/evidence.ts';
 import type { Run } from '../src/models.ts';
 import { emptyGraph } from '../src/workflow.ts';
 
@@ -40,4 +45,37 @@ test('condition values preserve status strings and use real booleans for state f
   assert.equal(conditionValue('test_passed', 'eq', 'false'), false);
   assert.deepEqual(conditionValue('review_approved', 'in', 'true,false'), [true, false]);
   assert.throws(() => conditionValue('planner_has_tasks', 'eq', 'yes'), /boolean/);
+});
+
+test('control notices reconcile draining, resumed and terminal ledger outcomes', () => {
+  assert.equal(
+    runControlNotice('pause', { status: 'running', pause_requested: true }).pending,
+    true,
+  );
+  assert.equal(
+    runControlNotice('pause', { status: 'paused', pause_requested: true }).pending,
+    false,
+  );
+  assert.equal(
+    runControlNotice('resume', { status: 'paused', pause_requested: false }).pending,
+    true,
+  );
+  assert.equal(
+    runControlNotice('resume', { status: 'running', pause_requested: false }).pending,
+    false,
+  );
+  for (const status of ['completed', 'cancelled', 'failed'] as const) {
+    const result = runControlNotice('resume', { status });
+    assert.equal(result.pending, false);
+    assert.equal(result.message, `Run ${status}.`);
+    assert.ok(!result.message.includes('Waiting'));
+  }
+  assert.equal(
+    runControlNotice('resume', { status: 'paused', pause_requested: true }, true).pending,
+    false,
+  );
+  assert.equal(
+    runControlNotice('cancel', { status: 'running', cancel_requested: true }).pending,
+    true,
+  );
 });

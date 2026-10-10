@@ -9,13 +9,16 @@ import {
   MiniMap,
   type NodeChange,
   type NodeProps,
+  type OnMoveStart,
   Position,
   ReactFlow,
+  type ReactFlowInstance,
 } from '@xyflow/react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '@xyflow/react/dist/style.css';
 import { errorMessage } from '../api';
 import { conditionValue } from '../evidence';
+import { graphFitOptions, ResizeFitPolicy } from '../flowViewport';
 import { useApi, useCommand, useList, useRecord } from '../hooks';
 import type {
   Agent,
@@ -96,6 +99,54 @@ const FactoryNodeView = memo(function FactoryNodeView({ data, selected }: NodePr
   );
 });
 const flowTypes = { factory: FactoryNodeView };
+function useFlowViewport(documentKey: string) {
+  const container = useRef<HTMLDivElement>(null);
+  const instance = useRef<ReactFlowInstance<FactoryNode, Edge> | null>(null);
+  const policy = useRef(new ResizeFitPolicy());
+  const frame = useRef<number | undefined>(undefined);
+  const fit = useCallback(() => {
+    if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      frame.current = undefined;
+      if (policy.current.automatic) void instance.current?.fitView(graphFitOptions);
+    });
+  }, []);
+  const onInit = useCallback(
+    (flow: ReactFlowInstance<FactoryNode, Edge>) => {
+      instance.current = flow;
+      fit();
+    },
+    [fit],
+  );
+  const preserve = useCallback(() => policy.current.preserve(), []);
+  const reset = useCallback(() => policy.current.reset(), []);
+  const onMoveStart = useCallback<OnMoveStart>(
+    (event) => {
+      if (event) preserve();
+    },
+    [preserve],
+  );
+  useEffect(() => {
+    // Switching the selected immutable graph is an explicit request to see that document.
+    if (!documentKey) return;
+    policy.current.reset();
+    fit();
+  }, [documentKey, fit]);
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry && policy.current.resize(entry.contentRect.width, entry.contentRect.height)) fit();
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    };
+  }, [fit]);
+  return { container, onInit, onMoveStart, preserve, reset };
+}
+
 export function GraphView({
   graph,
   states = {},
@@ -103,6 +154,9 @@ export function GraphView({
   graph: Graph;
   states?: Record<string, string>;
 }) {
+  const viewport = useFlowViewport(
+    `${graph.nodes.map((node) => node.id).join(',')}|${graph.edges.map((edge) => `${edge.source}:${edge.target}`).join(',')}`,
+  );
   const layout = useMemo(() => graphPositions(graph), [graph]);
   const nodes: FactoryNode[] = graph.nodes.map((node) => ({
     id: node.id,
@@ -111,8 +165,13 @@ export function GraphView({
     data: { kind: node.type, label: node.id, status: states[node.id] },
   }));
   return (
-    <div className="flow-readonly">
-      <ReactFlow
+    <div
+      className="flow-readonly"
+      ref={viewport.container}
+      onPointerDownCapture={viewport.preserve}
+      onFocusCapture={viewport.preserve}
+    >
+      <ReactFlow<FactoryNode, Edge>
         nodes={nodes}
         edges={graph.edges.map((edge, i) => ({
           id: edge.id ?? String(i),
@@ -123,11 +182,21 @@ export function GraphView({
         }))}
         nodeTypes={flowTypes}
         fitView
+        minZoom={graphFitOptions.minZoom}
+        fitViewOptions={graphFitOptions}
+        onInit={viewport.onInit}
+        onMoveStart={viewport.onMoveStart}
         nodesDraggable={false}
         nodesConnectable={false}
       >
         <Background gap={24} />
-        <Controls showInteractive={false} />
+        <Controls
+          showInteractive={false}
+          fitViewOptions={graphFitOptions}
+          onZoomIn={viewport.preserve}
+          onZoomOut={viewport.preserve}
+          onFitView={viewport.reset}
+        />
       </ReactFlow>
     </div>
   );
@@ -152,6 +221,7 @@ export function Workflows({
   const policies = useList<RegistryEntry>('policies');
   const command = useCommand();
   const [current, setCurrent] = useState<Workflow | null>(null);
+  const viewport = useFlowViewport(current?.id ?? 'new');
   const [graph, setGraph] = useState<Graph>(emptyGraph);
   const [name, setName] = useState('');
   const [layout, setLayout] = useState<Record<string, { x: number; y: number }>>(() =>
@@ -468,8 +538,13 @@ export function Workflows({
               Connect handles. Select a node to configure. Delete selected edges with Backspace.
             </small>
           </div>
-          <div className="flow-editor">
-            <ReactFlow
+          <div
+            className="flow-editor"
+            ref={viewport.container}
+            onPointerDownCapture={viewport.preserve}
+            onFocusCapture={viewport.preserve}
+          >
+            <ReactFlow<FactoryNode, Edge>
               nodes={nodes}
               edges={edges}
               nodeTypes={flowTypes}
@@ -487,11 +562,19 @@ export function Workflows({
               }
               onPaneClick={() => setSelected('')}
               fitView
-              minZoom={0.2}
+              minZoom={graphFitOptions.minZoom}
+              fitViewOptions={graphFitOptions}
+              onInit={viewport.onInit}
+              onMoveStart={viewport.onMoveStart}
             >
               <Background gap={24} color="#d9dfda" />
               <MiniMap pannable zoomable />
-              <Controls />
+              <Controls
+                fitViewOptions={graphFitOptions}
+                onZoomIn={viewport.preserve}
+                onZoomOut={viewport.preserve}
+                onFitView={viewport.reset}
+              />
             </ReactFlow>
           </div>
           {notice && (

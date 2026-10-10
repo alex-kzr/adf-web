@@ -32,7 +32,7 @@ Manual task states are authored only as draft/ready; running/completed outcomes 
 - `App.tsx`: memory-only session, hash navigation and overview; `main.tsx`: QueryClient and development-only lazy query tools.
 - `tests/`: Node test-runner regression tests, without live subscription calls.
 
-Local graph selection, node positions and unsaved edits are UI state. Published graph JSON and run snapshots are authoritative server state. Node positions are presentation only and are recomputed from dependencies on reload.
+Local graph selection, node positions and unsaved edits are UI state. Published graph JSON and run snapshots are authoritative server state. Node positions are presentation only and are recomputed from dependencies on reload. Both graph views and the editor fit wide supported DAGs at small zoom levels. Container resize refits an untouched automatic view; user pan, zoom or focus preserves the chosen viewport until explicit Fit view or switching graph documents.
 
 ## Contract bindings
 
@@ -49,7 +49,7 @@ The matching umbrella [contract documentation](../../docs/contracts.md) and API 
 | Generated workflow | Only accept `result.graph_proposal` when `result.graph_proposal_plan_hash === run.plan_hash`; the planning workflow version remains unchanged |
 | Run launch | `task_id`, immutable `workflow_version_id`, optional agent/policy, root base and plan; re-read source plan and reject changed hash or different root task |
 | Approval | Decision includes the exact `snapshot_hash` and approval `revision`; show snapshot and expiry before approving |
-| Controls | Durable `POST /pause`, `/resume`, `/cancel`; 202 means command persisted, not completed |
+| Controls | Durable `POST /pause`, `/resume`, `/cancel`; 202 means command persisted, not completed; pending notices reconcile to paused/running/terminal ledger outcomes |
 | Conflict resolution | `POST /resolution {execution_id,tree_sha}` proposes the preserved integration allocation's exact tree; fresh approval is required before resume |
 | Health / metrics | `/api/providers/health`, `/api/metrics/overview`, `/api/settings` |
 | Artifacts | Authenticated `/api/artifacts/{id}/content`, escaped text preview capped at 2 MiB, attachment download |
@@ -92,7 +92,7 @@ Relevant primary references: [React useActionState](https://react.dev/reference/
 
 ## Verification and readiness
 
-Local verification on October 10, 2026: production build and strict types passed; 21 proportional unit tests passed. Tests cover authorization/error boundaries and protected artifact session expiry, uncertain mutation identity, canonical forms, typed conditions, safe workflow evidence bindings, invalid graph topology, parallel layout, stale plan proposals, unknown usage and bounded SSE replay.
+Local verification on October 10, 2026: production build and strict types passed; 24 proportional unit tests passed. Tests cover authorization/error boundaries and protected artifact session expiry, uncertain mutation identity, canonical forms, typed conditions, safe workflow evidence bindings, invalid graph topology, parallel layout, mobile/desktop viewport fitting, preserved manual zoom, reconciled control notices, stale plan proposals, unknown usage and bounded SSE replay.
 
 Read-only checks through the local production same-origin proxy returned 200 for projects, tasks, workflows, agents, skills, tools, MCP servers, policies, runs, provider health, settings and metrics with expected list/metadata shapes. That database was empty, so these checks do not verify approval/execution artifact payloads or mutation workflows. The umbrella owner performs browser integration QA and host execution acceptance separately.
 

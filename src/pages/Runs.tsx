@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { currentPlanGraph, usageSummary } from '../evidence';
+import {
+  currentPlanGraph,
+  type RunControlAction,
+  runControlNotice,
+  usageSummary,
+} from '../evidence';
 import { useApi, useCommand, useList, useRecord, useRunEvents } from '../hooks';
 import type {
   Approval,
@@ -154,7 +159,11 @@ export function RunDetail({ id, navigate }: { id: string; navigate: (route: stri
   const [tab, setTab] = useState<'activity' | 'executions' | 'git' | 'plan'>('activity');
   const [approval, setApproval] = useState<Approval | null>(null);
   const [execution, setExecution] = useState<Execution | null>(null);
-  const [control, setControl] = useState<'pause' | 'resume' | 'cancel' | null>(null);
+  const [control, setControl] = useState<RunControlAction | null>(null);
+  const [requestedControl, setRequestedControl] = useState<{
+    action: RunControlAction;
+    confirmed: boolean;
+  } | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [artifactPending, setArtifactPending] = useState('');
@@ -171,6 +180,14 @@ export function RunDetail({ id, navigate }: { id: string; navigate: (route: stri
       .slice(-200);
   }, [history.data, stream.events]);
   const record = run.data;
+  const controlNotice = requestedControl
+    ? runControlNotice(requestedControl.action, record, requestedControl.confirmed)
+    : undefined;
+  const controlPending = controlNotice?.pending;
+  useEffect(() => {
+    if (requestedControl && !requestedControl.confirmed && controlPending === false)
+      setRequestedControl({ ...requestedControl, confirmed: true });
+  }, [requestedControl, controlPending]);
   const executions = record?.executions ?? [];
   const nodeItems = nodes.data?.items ?? record?.nodes ?? [];
   const pendingApprovals = (approvals.data?.items ?? record?.approvals ?? []).filter(
@@ -291,9 +308,12 @@ export function RunDetail({ id, navigate }: { id: string; navigate: (route: stri
                   : 'Pause requested. Active executions drain; new dispatch is stopped.'}
               </div>
             )}
-            {notice && (
-              <div className="notice success" role="status">
-                {notice}
+            {(controlNotice || notice) && (
+              <div
+                className={`notice ${controlPending ? '' : record.status === 'failed' ? 'error' : 'success'}`}
+                role="status"
+              >
+                {notice || controlNotice?.message}
               </div>
             )}
             {error && <ErrorNotice error={error} />}
@@ -866,7 +886,8 @@ export function RunDetail({ id, navigate }: { id: string; navigate: (route: stri
             cancel={() => setControl(null)}
             submit={async () => {
               await command.mutateAsync({ path: `/api/runs/${id}/${control}` });
-              setNotice(`${control} command persisted. Waiting for ledger confirmation.`);
+              setRequestedControl({ action: control, confirmed: false });
+              setNotice('');
               setControl(null);
             }}
           >

@@ -38,3 +38,31 @@ export function conditionValue(field: string, operator: string, value: string): 
         });
   return operator === 'in' ? typed : typed[0];
 }
+
+export type RunControlAction = 'pause' | 'resume' | 'cancel';
+export function runControlNotice(
+  action: RunControlAction,
+  run: Pick<Run, 'status' | 'pause_requested' | 'cancel_requested'> | undefined,
+  confirmed = false,
+): { pending: boolean; message: string } {
+  if (run && ['completed', 'failed', 'cancelled'].includes(run.status))
+    return { pending: false, message: `Run ${run.status}.` };
+  if (action === 'pause' && run?.status === 'paused')
+    return { pending: false, message: 'Run paused. Active executions have drained.' };
+  if (
+    action === 'resume' &&
+    run?.status === 'running' &&
+    !run.pause_requested &&
+    !run.cancel_requested
+  )
+    return { pending: false, message: 'Run resumed. Eligible work can dispatch.' };
+  if (confirmed)
+    return {
+      pending: false,
+      message: `${action} command confirmed. Current run state: ${run?.status ?? 'unknown'}.`,
+    };
+  return {
+    pending: true,
+    message: `${action} command persisted. Waiting for ledger confirmation.`,
+  };
+}
