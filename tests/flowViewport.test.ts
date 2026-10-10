@@ -63,4 +63,13 @@ test('controlled editor keeps measured bounds through selection and dragging', (
   assert.deepEqual(getNodesBounds(nodes), { x: 120, y: 160, width: 184, height: 68 });
   assert.equal(nodes[0].dragging, true);
   assert.equal('selected' in dragged.develop, false);
+  const readonlyStatusUpdate: Node[] = [
+    {
+      id: 'develop',
+      data: { status: 'succeeded' },
+      ...dragged.develop,
+      position: { x: 50, y: 80 },
+    },
+  ];
+  assert.deepEqual(getNodesBounds(readonlyStatusUpdate), { x: 50, y: 80, width: 184, height: 68 });
 });

@@ -163,9 +163,11 @@ export function GraphView({
     `${graph.nodes.map((node) => node.id).join(',')}|${graph.edges.map((edge) => `${edge.source}:${edge.target}`).join(',')}`,
   );
   const layout = useMemo(() => graphPositions(graph), [graph]);
+  const [geometry, setGeometry] = useState<Record<string, NodeGeometry>>({});
   const nodes: FactoryNode[] = graph.nodes.map((node) => ({
     id: node.id,
     type: 'factory',
+    ...geometry[node.id],
     position: layout[node.id],
     data: { kind: node.type, label: node.id, status: states[node.id] },
   }));
@@ -178,6 +180,9 @@ export function GraphView({
     >
       <ReactFlow<FactoryNode, Edge>
         nodes={nodes}
+        onNodesChange={(changes) =>
+          setGeometry(captureNodeGeometry(applyNodeChanges(changes, nodes)))
+        }
         edges={graph.edges.map((edge, i) => ({
           id: edge.id ?? String(i),
           source: edge.source,
