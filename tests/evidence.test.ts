@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   conditionValue,
   currentPlanGraph,
+  latestNodeStatuses,
   runControlNotice,
   usageSummary,
 } from '../src/evidence.ts';
@@ -77,5 +78,32 @@ test('control notices reconcile draining, resumed and terminal ledger outcomes',
   assert.equal(
     runControlNotice('cancel', { status: 'running', cancel_requested: true }).pending,
     true,
+  );
+});
+
+test('run graph chooses the highest attempt independently of unordered history rows', () => {
+  const nodes = Object.freeze([
+    Object.freeze({ node_id: 'end', attempt: 2, status: 'succeeded' }),
+    Object.freeze({ node_id: 'review', attempt: 1, status: 'succeeded' }),
+    Object.freeze({ node_id: 'end', attempt: 1, status: 'waiting_approval' }),
+    Object.freeze({ node_id: 'develop', attempt: 3, status: 'running' }),
+    Object.freeze({ node_id: 'develop', attempt: 1, status: 'succeeded' }),
+  ]);
+  const expected = { end: 'succeeded', review: 'succeeded', develop: 'running' };
+  assert.deepEqual(latestNodeStatuses(nodes), expected);
+  assert.deepEqual(latestNodeStatuses([...nodes].reverse()), expected);
+  assert.equal(nodes[2].status, 'waiting_approval');
+  assert.equal(nodes.length, 5);
+});
+
+test('empty node history and duplicate equal-attempt rows preserve canonical status', () => {
+  assert.deepEqual(latestNodeStatuses([]), {});
+  assert.deepEqual(
+    latestNodeStatuses([
+      { node_id: 'end', attempt: 2, status: 'succeeded' },
+      { node_id: 'end', attempt: 2, status: 'succeeded' },
+      { node_id: 'end', attempt: 1, status: 'waiting_approval' },
+    ]),
+    { end: 'succeeded' },
   );
 });

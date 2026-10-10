@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   currentPlanGraph,
+  latestNodeStatuses,
   type RunControlAction,
   runControlNotice,
   usageSummary,
@@ -357,10 +358,7 @@ export function RunDetail({ id, navigate }: { id: string; navigate: (route: stri
             {workflowGraph && (
               <section className="panel run-graph">
                 <h2>Pinned workflow</h2>
-                <GraphView
-                  graph={workflowGraph}
-                  states={Object.fromEntries(nodeItems.map((node) => [node.node_id, node.status]))}
-                />
+                <GraphView graph={workflowGraph} states={latestNodeStatuses(nodeItems)} />
               </section>
             )}
             <div className="tabs" role="tablist" aria-label="Run evidence" onKeyDown={tabKeyboard}>

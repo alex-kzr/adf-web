@@ -1,4 +1,4 @@
-import type { Graph, Json, Run } from './models.ts';
+import type { Graph, Json, NodeRun, Run } from './models.ts';
 
 export function usageSummary(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return 'unknown';
@@ -65,4 +65,17 @@ export function runControlNotice(
     pending: true,
     message: `${action} command persisted. Waiting for ledger confirmation.`,
   };
+}
+
+/** Project the current node attempt without changing the execution history. */
+export function latestNodeStatuses(
+  nodes: readonly Pick<NodeRun, 'node_id' | 'attempt' | 'status'>[],
+): Record<string, string> {
+  const latest = new Map<string, (typeof nodes)[number]>();
+  for (const node of nodes) {
+    const previous = latest.get(node.node_id);
+    // Equal attempts retain the selected canonical row; history has no transition ordering.
+    if (!previous || node.attempt > previous.attempt) latest.set(node.node_id, node);
+  }
+  return Object.fromEntries([...latest].map(([id, node]) => [id, node.status]));
 }
