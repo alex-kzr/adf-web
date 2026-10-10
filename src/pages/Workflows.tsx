@@ -18,7 +18,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '@xyflow/react/dist/style.css';
 import { errorMessage } from '../api';
 import { conditionValue } from '../evidence';
-import { graphFitOptions, ResizeFitPolicy } from '../flowViewport';
+import {
+  captureNodeGeometry,
+  graphFitOptions,
+  type NodeGeometry,
+  ResizeFitPolicy,
+} from '../flowViewport';
 import { useApi, useCommand, useList, useRecord } from '../hooks';
 import type {
   Agent,
@@ -224,8 +229,10 @@ export function Workflows({
   const viewport = useFlowViewport(current?.id ?? 'new');
   const [graph, setGraph] = useState<Graph>(emptyGraph);
   const [name, setName] = useState('');
-  const [layout, setLayout] = useState<Record<string, { x: number; y: number }>>(() =>
-    graphPositions(emptyGraph()),
+  const [geometry, setGeometry] = useState<Record<string, NodeGeometry>>(() =>
+    Object.fromEntries(
+      Object.entries(graphPositions(emptyGraph())).map(([id, position]) => [id, { position }]),
+    ),
   );
   const [selected, setSelected] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -242,7 +249,7 @@ export function Workflows({
   const nodes: FactoryNode[] = graph.nodes.map((n) => ({
     id: n.id,
     type: 'factory',
-    position: layout[n.id] ?? { x: 50, y: 50 },
+    ...(geometry[n.id] ?? { position: { x: 50, y: 50 } }),
     selected: selected === n.id,
     data: { kind: n.type, label: n.id },
   }));
@@ -257,7 +264,14 @@ export function Workflows({
     setCurrent(workflow);
     setGraph(structuredClone(workflow.graph_json));
     setName(workflow.name);
-    setLayout(graphPositions(workflow.graph_json));
+    setGeometry(
+      Object.fromEntries(
+        Object.entries(graphPositions(workflow.graph_json)).map(([id, position]) => [
+          id,
+          { position },
+        ]),
+      ),
+    );
     setSelected('');
     setDirty(false);
     setMessages([]);
@@ -306,11 +320,13 @@ export function Workflows({
                 ? { action: 'execute_plan' }
                 : {};
     changeGraph({ ...graph, nodes: [...graph.nodes, { id, type: palette, config }] });
-    setLayout((value) => ({
+    setGeometry((value) => ({
       ...value,
       [id]: {
-        x: 180 + (graph.nodes.length % 4) * 260,
-        y: 220 + Math.floor(graph.nodes.length / 4) * 120,
+        position: {
+          x: 180 + (graph.nodes.length % 4) * 260,
+          y: 220 + Math.floor(graph.nodes.length / 4) * 120,
+        },
       },
     }));
     setSelected(id);
@@ -348,7 +364,7 @@ export function Workflows({
       const selection = changes.find((change) => change.type === 'select' && change.selected);
       if (selection?.type === 'select') setSelected(selection.id);
       const changed = applyNodeChanges(changes, nodes);
-      setLayout(Object.fromEntries(changed.map((item) => [item.id, item.position])));
+      setGeometry(captureNodeGeometry(changed));
       const deleted = changes
         .filter((change) => change.type === 'remove')
         .map((change) => change.id);
